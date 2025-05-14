@@ -42,6 +42,7 @@ namespace SimpleTerrainGenerator
                     chunkPos.y * (worldSize / chunkSize) + worldSize / 2);
             }
         }
+
         public Chunk(MainChunk mainChunk, Vector2Int chunkPos, int chunkSize, int meshResolution, float worldSize)
         {
             this.mainChunk = mainChunk;
@@ -59,11 +60,17 @@ namespace SimpleTerrainGenerator
             updateMesh = true;
         }
 
+        /// <summary>
+        /// Called by TerrainGenerator to check for merge/split 
+        /// </summary>
         public void LodUpdate()
         {
 
         }
 
+        /// <summary>
+        /// called by TerrainGenerator. Recursivly goes thew chunks to check for update
+        /// </summary>
         public void MeshUpdate()
         {
             if (isQuad)
@@ -73,33 +80,34 @@ namespace SimpleTerrainGenerator
                     subChunks[i].MeshUpdate();
                 }
             }
-            else
+            else if (updateMesh)
             {
-                if (updateMesh)
+                if (terrainObject == null) //Create mesh
                 {
-                    if (terrainObject == null)
-                    {
-                        terrainObject = new GameObject("Terrain-" + chunkPos, typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider));
-                        terrainObject.transform.position = new Vector3(chunkPos.x * (worldSize / chunkSize), 0, chunkPos.y * (worldSize / chunkSize));
-                        terrainObject.GetComponent<MeshRenderer>().material = mainChunk.Material;
-                    }
-
-                    Mesh mesh = terrainObject.GetComponent<MeshFilter>().sharedMesh;
-
-                    if(mesh == null)
-                    {
-                        mesh = new Mesh();
-                        terrainObject.GetComponent<MeshFilter>().sharedMesh = mesh;
-                    }
-
-                    GenerateMesh(mesh);
-
-                    updateMesh = false;
+                    terrainObject = new GameObject("Terrain-" + chunkPos, typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider));
+                    terrainObject.transform.position = new Vector3(chunkPos.x * (worldSize / chunkSize), 0, chunkPos.y * (worldSize / chunkSize));
+                    terrainObject.GetComponent<MeshRenderer>().material = mainChunk.Material;
                 }
+
+                Mesh mesh = terrainObject.GetComponent<MeshFilter>().sharedMesh;
+
+                if(mesh == null)
+                {
+                    mesh = new Mesh();
+                    terrainObject.GetComponent<MeshFilter>().sharedMesh = mesh;
+                }
+
+                GenerateMesh(mesh);
+
+                updateMesh = false;
             }
         }
 
-        private Mesh GenerateMesh(Mesh mesh)
+		/// <summary>
+		/// Clears the current mesh (Todo: optimize) and remakes it
+		/// </summary>
+		/// <param name="mesh">The current mesh of terrainObject</param>
+		private void GenerateMesh(Mesh mesh)
         {
             mesh.Clear();
             Vector3[] vertices = new Vector3[meshResolution * meshResolution];
@@ -107,7 +115,6 @@ namespace SimpleTerrainGenerator
 
             float cellSize = worldSize / meshResolution;
 
-            //place verts
             int vertIndex = 0;
             int trigIndex = 0;
             for (int x = 0; x < meshResolution; x++)
@@ -122,6 +129,7 @@ namespace SimpleTerrainGenerator
                         int up = vertIndex - meshResolution;
                         int leftUp = vertIndex - meshResolution - 1;
 
+                        //changes triangle directions for |X| faces
                         if (y % 2 == x % 2) //forward triangles
                         {
                             triangles[trigIndex] = vertIndex;
@@ -153,9 +161,12 @@ namespace SimpleTerrainGenerator
             mesh.vertices = vertices;
             mesh.triangles = triangles;
 
-            return mesh;
+            //return mesh;
         }
 
+        /// <summary>
+        /// Sub-divides chunk
+        /// </summary>
         public void Split()
         {
             if (isQuad == true)
@@ -165,9 +176,7 @@ namespace SimpleTerrainGenerator
             else
             {
                 if (terrainObject != null)
-                {
                     ScriptableObject.Destroy(terrainObject);
-                }
 
                 subChunks = new Chunk[4];
                 int subChunkWidth = chunkSize / 2;
@@ -176,28 +185,16 @@ namespace SimpleTerrainGenerator
                     subChunks[i] = new Chunk(mainChunk, chunkPos + Common.subChunkPositions[i] * subChunkWidth, subChunkWidth, meshResolution, worldSize / 2f);
                 }
 
-                //gives new chunks the adjacents of the subchunks
-                //TODO make new Chunks with given adjacents and tell adjacents this has changed
-                for (int i = 0; i < subChunks.Length; i++)
-                {
-                    int relLeft = (i + 3) % 4;
-                    int relRight = (i + 1) % 4;
-                    int relDown = (i + 2) % 4;
-                    int relUp = i;
+                RenounceNeighborsToSubChunks();
 
-                    //subchunk Neighbors
-                    subChunks[i].ReplaceNeighbor(null, subChunks[relLeft], (AdjacentDirections)relLeft);
-                    subChunks[i].ReplaceNeighbor(null, subChunks[relRight], (AdjacentDirections)relDown);
-                    //transfering this chunks neighbors
-                    subChunks[i].ReplaceNeighbor(null, neighbors[relRight][0], (AdjacentDirections)relRight);
-                    subChunks[i].ReplaceNeighbor(null, neighbors[relUp][0], (AdjacentDirections)relUp);
-                }
-
-                neighbors = null;
+				neighbors = null;
                 isQuad = true;
             }
         }
 
+        /// <summary>
+        /// Adds Sub-chunks to this chunk
+        /// </summary>
         public void Merge()
         {
             if (isQuad == false)
@@ -206,7 +203,7 @@ namespace SimpleTerrainGenerator
             }
             else
             {
-                InharitSubChunksNeighbors();
+                InheritSubChunksNeighbors();
 
                 subChunks = null;
                 updateMesh = true;
@@ -241,13 +238,75 @@ namespace SimpleTerrainGenerator
             return neighbors;
         }
 
-        /// <summary>
-        /// Removes a chunk and replaces it with a new one
-        /// </summary>
-        /// <param name="remove"></param>
-        /// <param name="replacement"></param>
-        /// <param name="direction">The direction of the chunk that is being removed relative to the chunk were on</param>
-        public void ReplaceNeighbor(Chunk remove, Chunk replacement, AdjacentDirections direction)
+		/// <summary>
+		/// Called when a merge occurs to grab neighbors from sub-chunks and change neighbors to this chunk
+		/// </summary>
+		private void InheritSubChunksNeighbors()
+		{
+			neighbors = new List<Chunk>[4];
+			for (int i = 0; i < neighbors.Length; i++)
+			{
+				neighbors[i] = new List<Chunk>();
+				Debug.Log(neighbors[i].Count);
+			}
+
+			for (int i = 0; i < subChunks.Length; i++)
+			{
+				List<Chunk>[] subNeighbors = subChunks[i].Destroy(this);
+
+				for (int dir = 0; dir < 4; dir++)
+				{
+					int i2 = (i + 1) % 4;
+					neighbors[i].AddRange(subNeighbors[i].Except(neighbors[i]));
+					neighbors[i2].AddRange(subNeighbors[i2].Except(neighbors[i2]));
+				}
+			}
+
+			//Todo: tell neightbors that this chunk is the new neighbor to it
+
+
+
+			subChunks = null;
+		}
+
+		/// <summary>
+		/// Called when a split occurs to give neighbors to SubChunks and change neighbors to the new subchunks
+		/// </summary>
+		private void RenounceNeighborsToSubChunks()
+        {
+			for (int i = 0; i < subChunks.Length; i++)
+			{
+				int relLeft = (i + 3) % 4;
+				int relRight = (i + 1) % 4;
+				int relDown = (i + 2) % 4;
+				int relUp = i;
+
+				//subchunk Neighbors
+				subChunks[i].ReplaceNeighbor(null, subChunks[relLeft], (AdjacentDirections)relLeft);
+				subChunks[i].ReplaceNeighbor(null, subChunks[relRight], (AdjacentDirections)relDown);
+				//Give our neighbors to children
+				subChunks[i].ReplaceNeighbor(null, neighbors[relRight][0], (AdjacentDirections)relRight);
+				subChunks[i].ReplaceNeighbor(null, neighbors[relUp][0], (AdjacentDirections)relUp);
+
+                //tell neighbors of new children
+                foreach(Chunk rightNeightbor in neighbors[relRight])
+                {
+                    rightNeightbor.ReplaceNeighbor(this, subChunks[i], (AdjacentDirections)relLeft);
+                }
+                foreach(Chunk upNeighbor in neighbors[relUp])
+                {
+					upNeighbor.ReplaceNeighbor(this, subChunks[i], (AdjacentDirections)relDown);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Removes a chunk and replaces it with a new one
+		/// </summary>
+		/// <param name="remove"></param>
+		/// <param name="replacement"></param>
+		/// <param name="direction">The direction of the chunk that is being removed relative to the chunk were on</param>
+		public void ReplaceNeighbor(Chunk remove, Chunk replacement, AdjacentDirections direction)
         {
             if (remove != null && !neighbors[(int)direction].Remove(remove))
             {
@@ -258,36 +317,6 @@ namespace SimpleTerrainGenerator
             {
                 neighbors[(int)direction].Add(replacement);
             }
-        }
-
-
-
-        private void InharitSubChunksNeighbors()
-        {
-            neighbors = new List<Chunk>[4];
-            for (int i = 0; i < neighbors.Length; i++)
-            {
-                neighbors[i] = new List<Chunk>();
-                Debug.Log(neighbors[i].Count);
-            }
-
-            for (int i = 0; i < subChunks.Length; i++)
-            {
-                List<Chunk>[] subNeighbors = subChunks[i].Destroy(this);
-
-                for (int dir = 0; dir < 4; dir++)
-                {
-                    int i2 = (i + 1) % 4;
-                    neighbors[i].AddRange(subNeighbors[i].Except(neighbors[i]));
-                    neighbors[i2].AddRange(subNeighbors[i2].Except(neighbors[i2]));
-                }
-            }
-
-            //tell neightbors that this chunk is the new neighbor to it
-
-
-
-            subChunks = null;
         }
 
         public void Debugger()
