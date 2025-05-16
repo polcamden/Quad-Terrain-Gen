@@ -69,7 +69,7 @@ namespace SimpleTerrainGenerator {
 
         private void CreateMainChunks()
         {
-            for (int x = -innerWorldSize; x <= innerWorldSize; x++)
+            for (int x = innerWorldSize; x >= -innerWorldSize; x--)
             {
                 for (int z = -innerWorldSize; z <= innerWorldSize; z++)
                 {
@@ -157,10 +157,17 @@ namespace SimpleTerrainGenerator {
             if (worldChunks == null || worldChunks.Count == 0)
                 return;
 
-            for (int i = 0; i < worldChunks.Count; i++)
+            worldChunks[6].Debugger();
+
+            /*for (int i = 0; i < worldChunks.Count; i++)
+            {
+                Handles.Label(worldChunks[i].WorldCenter, $"{i}");
+            }*/
+
+			/*for (int i = 0; i < worldChunks.Count; i++)
             {
                 worldChunks[i].Debugger();
-            }
-        }
+            }*/
+		}
     }
 }

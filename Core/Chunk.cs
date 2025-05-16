@@ -22,8 +22,11 @@ namespace SimpleTerrainGenerator
         //Quad
         private bool isQuad;
         private Chunk[] subChunks;
+        //Quad mesh data
         private GameObject terrainObject;
+        private Mesh terrainMesh;
 
+        //neighbors
         private List<Chunk>[] neighbors;
 
         private bool updateMesh;
@@ -41,6 +44,17 @@ namespace SimpleTerrainGenerator
                     0,
                     chunkPos.y * (worldSize / chunkSize) + worldSize / 2);
             }
+        }
+
+        public Vector3 WorldCorner
+        {
+            get
+            {
+				return new Vector3(
+					chunkPos.x * (worldSize / chunkSize),
+					0,
+					chunkPos.y * (worldSize / chunkSize));
+			}
         }
 
         public Chunk(MainChunk mainChunk, Vector2Int chunkPos, int chunkSize, int meshResolution, float worldSize)
@@ -87,17 +101,13 @@ namespace SimpleTerrainGenerator
                     terrainObject = new GameObject("Terrain-" + chunkPos, typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider));
                     terrainObject.transform.position = new Vector3(chunkPos.x * (worldSize / chunkSize), 0, chunkPos.y * (worldSize / chunkSize));
                     terrainObject.GetComponent<MeshRenderer>().material = mainChunk.Material;
-                }
+                    terrainMesh = terrainObject.GetComponent<MeshFilter>().sharedMesh;
 
-                Mesh mesh = terrainObject.GetComponent<MeshFilter>().sharedMesh;
+					terrainMesh = new Mesh();
+				    terrainObject.GetComponent<MeshFilter>().sharedMesh = terrainMesh;
+				}
 
-                if(mesh == null)
-                {
-                    mesh = new Mesh();
-                    terrainObject.GetComponent<MeshFilter>().sharedMesh = mesh;
-                }
-
-                GenerateMesh(mesh);
+                GenerateMesh();
 
                 updateMesh = false;
             }
@@ -107,16 +117,37 @@ namespace SimpleTerrainGenerator
 		/// Clears the current mesh (Todo: optimize) and remakes it
 		/// </summary>
 		/// <param name="mesh">The current mesh of terrainObject</param>
-		private void GenerateMesh(Mesh mesh)
+		private void GenerateMesh()
         {
-            mesh.Clear();
-            Vector3[] vertices = new Vector3[meshResolution * meshResolution];
+			terrainMesh.Clear();
+			// AdjacentDirections.right  AdjacentDirections.backward
+			int mergeBackwardVerts = 0;
+			//loop threw AdjacentDirection.backwards to find neighbor resolution added up
+			foreach (Chunk neighbor in neighbors[(int)AdjacentDirections.backward])
+			{
+				mergeBackwardVerts += neighbor.meshResolution;
+				mergeBackwardVerts++;
+			}
+
+			int mergeRightVerts = 0;
+            //loop threw AdjacentDirection.right to find neighbor resolution added up
+            foreach (Chunk neighbor in neighbors[(int)AdjacentDirections.right])
+            {
+                mergeRightVerts += neighbor.meshResolution;
+			}
+
+            //Debug.Log($"right: {mergeRightVerts}");
+            //Debug.Log($"backward: {mergeBackwardVerts}");
+
+			Vector3[] vertices = new Vector3[meshResolution * meshResolution + mergeBackwardVerts + mergeRightVerts];
             int[] triangles = new int[vertices.Length * 6];
 
             float cellSize = worldSize / meshResolution;
 
             int vertIndex = 0;
             int trigIndex = 0;
+
+            //generate interior mesh
             for (int x = 0; x < meshResolution; x++)
             {
                 for (int y = 0; y < meshResolution; y++)
@@ -158,8 +189,74 @@ namespace SimpleTerrainGenerator
                 }
             }
 
-            mesh.vertices = vertices;
-            mesh.triangles = triangles;
+            int mergStart = vertIndex;
+            //generate backward merge
+			foreach (Chunk neighbor in neighbors[(int)AdjacentDirections.backward])
+			{
+				for (int i = neighbor.meshResolution - 1; i < neighbor.meshResolution * neighbor.meshResolution; i += neighbor.meshResolution)
+				{
+					Vector3 vert = neighbor.terrainMesh.vertices[i] + Vector3.back * worldSize;
+                    vertices[vertIndex] = vert;
+                    vertIndex++;
+				}
+			}
+
+            if (mergStart != vertIndex)
+            {
+                for (int i = 0; i < meshResolution-1; i++)
+                {
+                    int vert = i * meshResolution;
+                    int left = vert + meshResolution;
+                    int up = mergStart + i;
+                    int down = up + 1;
+
+                    triangles[trigIndex] = vert;
+                    triangles[trigIndex + 1] = left;
+                    triangles[trigIndex + 2] = up;
+
+                    triangles[trigIndex + 3] = left;
+                    triangles[trigIndex + 4] = down;
+                    triangles[trigIndex + 5] = up;
+                    trigIndex += 6;
+				}
+            }
+
+			mergStart = vertIndex;
+			//generate backward merge
+			foreach (Chunk neighbor in neighbors[(int)AdjacentDirections.right])
+			{
+				for (int i = 0; i < neighbor.meshResolution; i++)
+				{
+					vertices[vertIndex] = neighbor.terrainMesh.vertices[i] + Vector3.right * worldSize;
+					vertIndex++;
+				}
+			}
+
+			if (mergStart != vertIndex)
+			{
+				for (int i = 0; i < meshResolution - 1; i++)
+				{
+					int vert = i + (meshResolution - 1) * meshResolution;
+					int left = vert+1;
+					int up = mergStart + i;
+					int down = up + 1;
+
+					triangles[trigIndex] = vert;
+					triangles[trigIndex + 1] = left;
+					triangles[trigIndex + 2] = up;
+
+					triangles[trigIndex + 3] = left;
+					triangles[trigIndex + 4] = down;
+					triangles[trigIndex + 5] = up;
+					trigIndex += 6;
+				}
+			}
+
+			Debug.Log($"vert missMatch: {vertices.Length - vertIndex}");
+			Debug.Log($"Trig missMatch: {triangles.Length - trigIndex}");
+
+			terrainMesh.vertices = vertices;
+			terrainMesh.triangles = triangles;
 
             //return mesh;
         }
@@ -203,7 +300,7 @@ namespace SimpleTerrainGenerator
             }
             else
             {
-                InheritSubChunksNeighbors();
+                InheritNeighborsFromSubChunks();
 
                 subChunks = null;
                 updateMesh = true;
@@ -211,11 +308,11 @@ namespace SimpleTerrainGenerator
             }
         }
 
-        private List<Chunk>[] Destroy(Chunk parent)
+        public virtual List<Chunk>[] Destroy(Chunk parent)
         {
             if (isQuad)
             {
-                Debug.LogError("can not recursivly merge");
+                Debug.LogError("Can not recursivly merge");
                 //InharitSubChunksNeighbors();
             }
             else
@@ -223,13 +320,14 @@ namespace SimpleTerrainGenerator
                 if (terrainObject != null)
                 {
                     ScriptableObject.Destroy(terrainObject);
+                    terrainMesh.Clear();
 
                     //tell neighbors that our chunk has been destroy and that the parent of this is the new neighbor
                     for (int i = 0; i < 4; i++)
                     {
                         for (int j = 0; j < neighbors[i].Count; j++)
                         {
-                            //neighbors[i][j].NeighborChange(this, parent, (AdjacentDirections)((i + 2) % 4));
+                            neighbors[i][j].ReplaceNeighbor(this, parent, (AdjacentDirections)((i + 2) % 4));
                         }
                     }
                 }
@@ -241,7 +339,7 @@ namespace SimpleTerrainGenerator
 		/// <summary>
 		/// Called when a merge occurs to grab neighbors from sub-chunks and change neighbors to this chunk
 		/// </summary>
-		private void InheritSubChunksNeighbors()
+		private void InheritNeighborsFromSubChunks()
 		{
 			neighbors = new List<Chunk>[4];
 			for (int i = 0; i < neighbors.Length; i++)
@@ -259,12 +357,11 @@ namespace SimpleTerrainGenerator
 					int i2 = (i + 1) % 4;
 					neighbors[i].AddRange(subNeighbors[i].Except(neighbors[i]));
 					neighbors[i2].AddRange(subNeighbors[i2].Except(neighbors[i2]));
+
+                    neighbors[i].Remove(this);
+                    neighbors[i2].Remove(this);
 				}
 			}
-
-			//Todo: tell neightbors that this chunk is the new neighbor to it
-
-
 
 			subChunks = null;
 		}
@@ -317,6 +414,11 @@ namespace SimpleTerrainGenerator
             {
                 neighbors[(int)direction].Add(replacement);
             }
+
+            if(direction == AdjacentDirections.right || direction == AdjacentDirections.backward)
+            {
+                updateMesh = true;
+			}
         }
 
         public void Debugger()
@@ -367,6 +469,49 @@ namespace SimpleTerrainGenerator
                     }
                 }
             }
-        }
+
+
+
+            /*foreach (Chunk neighbor in neighbors[(int)AdjacentDirections.backward])
+			{
+				for (int i = neighbor.meshResolution - 1; i < neighbor.meshResolution * neighbor.meshResolution; i += neighbor.meshResolution)
+				{
+                    //Vector3 pos = neighbor.terrainMesh.vertices[i] + Vector3.back * worldSize;
+                    //Vector3 toWorldPos = pos + WorldCorner;
+					//Handles.Label(toWorldPos, "there");
+
+                    Vector3 ourVert = terrainMesh.vertices[i + 1] + WorldCorner;
+                    Handles.Label(ourVert, "our");
+
+				}
+			}*/
+
+            /*for (int i = 0; i < meshResolution; i++)
+            {
+				Vector3 ourVert = terrainMesh.vertices[i + (meshResolution - 1) * meshResolution] + WorldCorner;
+				Handles.Label(ourVert, "our");
+			}*/
+
+			/*for (int i = 0; i < meshResolution * meshResolution; i += meshResolution)
+			{
+				//Vector3 pos = neighbor.terrainMesh.vertices[i] + Vector3.back * worldSize;
+				//Vector3 toWorldPos = pos + WorldCorner;
+				//Handles.Label(toWorldPos, "there");
+
+				Vector3 ourVert = terrainMesh.vertices[i] + WorldCorner;
+				Handles.Label(ourVert, "our");
+
+			}*/
+
+			/*foreach (Chunk neighbor in neighbors[(int)AdjacentDirections.right])
+			{
+				for (int i = 0; i < neighbor.meshResolution; i++)
+				{
+					Vector3 pos = neighbor.terrainMesh.vertices[i] + Vector3.right * worldSize;
+					Vector3 toWorldPos = pos + WorldCorner;
+					Handles.Label(toWorldPos, i + "");
+				}
+			}*/
+		}
     }
 }
