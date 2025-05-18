@@ -111,16 +111,22 @@ namespace SimpleTerrainGenerator {
         [ContextMenu("split test")]
         void SplitMainChunk()
         {
-            worldChunks[6].Split();
+            worldChunks[4].Split();
         }
 
         [ContextMenu("merge test")]
         void MergeMainChunk()
         {
-            worldChunks[6].Merge();
+            worldChunks[4].Merge();
         }
 
-        private void LodUpdate()
+		[ContextMenu("transition test")]
+		void TransitionUpdateChunk()
+		{
+			worldChunks[4].transitionUpdate();
+		}
+
+		private void LodUpdate()
         {
 
         }
@@ -157,7 +163,7 @@ namespace SimpleTerrainGenerator {
             if (worldChunks == null || worldChunks.Count == 0)
                 return;
 
-            worldChunks[6].Debugger();
+            worldChunks[4].Debugger();
 
             /*for (int i = 0; i < worldChunks.Count; i++)
             {
