@@ -111,13 +111,13 @@ namespace SimpleTerrainGenerator {
         [ContextMenu("split test")]
         void SplitMainChunk()
         {
-            worldChunks[4].Split();
+            worldChunks[5].Split();
         }
 
         [ContextMenu("merge test")]
         void MergeMainChunk()
         {
-            worldChunks[4].Merge();
+            worldChunks[5].Merge();
         }
 
 		[ContextMenu("transition test")]
