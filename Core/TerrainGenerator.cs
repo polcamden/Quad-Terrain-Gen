@@ -111,13 +111,13 @@ namespace SimpleTerrainGenerator {
         [ContextMenu("split test")]
         void SplitMainChunk()
         {
-            worldChunks[5].Split();
+            worldChunks[1].Split();
         }
 
         [ContextMenu("merge test")]
         void MergeMainChunk()
         {
-            worldChunks[5].Merge();
+            worldChunks[1].Merge();
         }
 
 		[ContextMenu("transition test")]
@@ -128,7 +128,7 @@ namespace SimpleTerrainGenerator {
 
 		private void LodUpdate()
         {
-
+            
         }
 
         private void MeshUpdate()
