@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.Rendering;
+using static UnityEditor.Searcher.SearcherWindow.Alignment;
 
 namespace SimpleTerrainGenerator
 {
@@ -25,13 +26,16 @@ namespace SimpleTerrainGenerator
         //Quad mesh data
         private GameObject terrainObject;
         private Mesh terrainMesh;
-        private int TransitionBackwardStart;
-		private int TransitionRightStart;
+        private int transitionVertForwardStart;
+        private int transitionTrigForwardStart;
+		private int transitionVertRightStart;
+		private int transitionTrigRightStart;
 
-        //neighbors
-        private List<Chunk>[] neighbors;
+		//neighbors
+		private List<Chunk>[] neighbors;
 
         private bool updateMesh;
+        private bool updateTransition;
 
         public Vector2Int ChunkPosition
         {
@@ -82,7 +86,8 @@ namespace SimpleTerrainGenerator
             }
 
             updateMesh = true;
-        }
+            updateTransition = true;
+		}
 
         /// <summary>
         /// Called by TerrainGenerator to check for merge/split 
@@ -95,13 +100,13 @@ namespace SimpleTerrainGenerator
         /// <summary>
         /// Called by TerrainGenerator. Recursivly goes thew chunks to check for update
         /// </summary>
-        public void MeshUpdate()
+        public void TerrainMeshUpdate()
         {
             if (isQuad)
             {
                 for (int i = 0; i < subChunks.Length; i++)
                 {
-                    subChunks[i].MeshUpdate();
+                    subChunks[i].TerrainMeshUpdate();
                 }
             }
             else if (updateMesh)
@@ -111,10 +116,10 @@ namespace SimpleTerrainGenerator
                     terrainObject = new GameObject("Terrain-" + chunkPos, typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider));
                     terrainObject.transform.position = new Vector3(chunkPos.x * (worldSize / chunkSize), 0, chunkPos.y * (worldSize / chunkSize));
                     terrainObject.GetComponent<MeshRenderer>().material = mainChunk.Material;
-                    terrainMesh = terrainObject.GetComponent<MeshFilter>().sharedMesh;
+                    terrainMesh = terrainObject.GetComponent<MeshFilter>().mesh;
 
 					terrainMesh = new Mesh();
-				    terrainObject.GetComponent<MeshFilter>().sharedMesh = terrainMesh;
+				    terrainObject.GetComponent<MeshFilter>().mesh = terrainMesh;
 				}
 
                 GenerateMesh();
@@ -123,18 +128,39 @@ namespace SimpleTerrainGenerator
             }
         }
 
-        public void transitionUpdate()
+        /// <summary>
+        /// Updates Transition part of mesh if needed. Recursives
+        /// </summary>
+        public void TransitionMeshUpdate()
         {
-			if (neighbors[(int)AdjacentDirections.backward].Count != 0)
-			{
-				AddMeshTransition(false);
-			}
+            if (isQuad)
+            {
+                for (int i = 0; i < subChunks.Length; i++)
+                {
+                    subChunks[i].TransitionMeshUpdate();
+				}
+            }
+            else if(updateTransition)
+            {
+				if (neighbors[(int)AdjacentDirections.forward].Count != 0)
+				{
+					AddMeshTransition(false);
+                    transitionVertRightStart = terrainMesh.vertices.Length;
+                    transitionTrigRightStart = terrainMesh.triangles.Length;
+				}
+                else
+                {
+                    transitionVertRightStart = transitionVertForwardStart;
+                    transitionTrigRightStart = transitionTrigForwardStart;
+                }
 
-			if (neighbors[(int)AdjacentDirections.right].Count != 0)
-			{
-				AddMeshTransition(true);
+                if (neighbors[(int)AdjacentDirections.right].Count != 0)
+                {
+                    AddMeshTransition(true);
+                }
+
+				updateTransition = false;
 			}
-			//AddMeshTransition(true);
 		}
 
 		/// <summary>
@@ -144,24 +170,6 @@ namespace SimpleTerrainGenerator
 		private void GenerateMesh()
         {
 			terrainMesh.Clear();
-			// AdjacentDirections.right  AdjacentDirections.backward
-			/*int mergeBackwardVerts = 0;
-			//loop threw AdjacentDirection.backwards to find neighbor resolution added up
-			foreach (Chunk neighbor in neighbors[(int)AdjacentDirections.backward])
-			{
-				mergeBackwardVerts += neighbor.meshResolution;
-				mergeBackwardVerts++;
-			}
-
-			int mergeRightVerts = 0;
-            //loop threw AdjacentDirection.right to find neighbor resolution added up
-            foreach (Chunk neighbor in neighbors[(int)AdjacentDirections.right])
-            {
-                mergeRightVerts += neighbor.meshResolution;
-			}*/
-
-            //Debug.Log($"right: {mergeRightVerts}");
-            //Debug.Log($"backward: {mergeBackwardVerts}");
 
 			Vector3[] vertices = new Vector3[meshResolution * meshResolution];
             int[] triangles = new int[6 * (meshResolution - 1) * (meshResolution - 1)];
@@ -172,6 +180,7 @@ namespace SimpleTerrainGenerator
             int trigIndex = 0;
 
             //generate interior mesh
+
             for (int x = 0; x < meshResolution; x++)
             {
                 for (int y = 0; y < meshResolution; y++)
@@ -213,77 +222,14 @@ namespace SimpleTerrainGenerator
                 }
             }
 
-            /*int mergStart = vertIndex;
-            //generate backward merge
-			foreach (Chunk neighbor in neighbors[(int)AdjacentDirections.backward])
-			{
-				for (int i = neighbor.meshResolution - 1; i < neighbor.meshResolution * neighbor.meshResolution; i += neighbor.meshResolution)
-				{
-					Vector3 vert = neighbor.terrainMesh.vertices[i] + Vector3.back * worldSize;
-                    vertices[vertIndex] = vert;
-                    vertIndex++;
-				}
-			}
-
-            if (mergStart != vertIndex)
-            {
-                for (int i = 0; i < meshResolution-1; i++)
-                {
-                    int vert = i * meshResolution;
-                    int left = vert + meshResolution;
-                    int up = mergStart + i;
-                    int down = up + 1;
-
-                    triangles[trigIndex] = vert;
-                    triangles[trigIndex + 1] = left;
-                    triangles[trigIndex + 2] = up;
-
-                    triangles[trigIndex + 3] = left;
-                    triangles[trigIndex + 4] = down;
-                    triangles[trigIndex + 5] = up;
-                    trigIndex += 6;
-				}
-            }
-
-			mergStart = vertIndex;
-			//generate backward merge
-			foreach (Chunk neighbor in neighbors[(int)AdjacentDirections.right])
-			{
-				for (int i = 0; i < neighbor.meshResolution; i++)
-				{
-					vertices[vertIndex] = neighbor.terrainMesh.vertices[i] + Vector3.right * worldSize;
-					vertIndex++;
-				}
-			}
-
-			if (mergStart != vertIndex)
-			{
-				for (int i = 0; i < meshResolution - 1; i++)
-				{
-					int vert = i + (meshResolution - 1) * meshResolution;
-					int left = vert+1;
-					int up = mergStart + i;
-					int down = up + 1;
-
-					triangles[trigIndex] = vert;
-					triangles[trigIndex + 1] = left;
-					triangles[trigIndex + 2] = up;
-
-					triangles[trigIndex + 3] = left;
-					triangles[trigIndex + 4] = down;
-					triangles[trigIndex + 5] = up;
-					trigIndex += 6;
-				}
-			}*/
-
-			
-
 			terrainMesh.vertices = vertices;
 			terrainMesh.triangles = triangles;
 
+            transitionVertForwardStart = vertices.Length;
+			transitionTrigForwardStart = triangles.Length;
+
 			Debug.Log($"vert missMatch: {vertices.Length - vertIndex}");
 			Debug.Log($"Trig missMatch: {triangles.Length - trigIndex}");
-			//return mesh;
 		}
 
 		/// <summary>
@@ -307,7 +253,7 @@ namespace SimpleTerrainGenerator
 
             Vector3[] vertices = new Vector3[vertsCount];
             int[] triangles = new int[64 * 24]; //Todo: find equation for this
-            int vertOffset = terrainMesh.vertices.Length;
+            int vertOffset = isRight ? transitionVertRightStart : transitionVertForwardStart;
 
             int vertIndex = 0;
             int trigIndex = 0;
@@ -322,9 +268,6 @@ namespace SimpleTerrainGenerator
 				int ourStart = (int)(neighborsRatio * meshResolution) * i;
 				int ourEnd = (int)(neighborsRatio * meshResolution) * (i + 1);
 
-                Debug.Log($"{neighborStart} -> {neighborEnd}");
-                Debug.Log($"{ourStart} -> {ourEnd}");
-
                 //create vertices for neighbor
 				for (int j = 0; j < neighbor.meshResolution; j++)
 				{
@@ -336,7 +279,6 @@ namespace SimpleTerrainGenerator
 					else
 					{
                         float rightOffset = i == 0 ? 0 : (worldSize / (i + 1));
-                        Debug.Log(rightOffset);
 						vertices[vertIndex] = neighbor.terrainMesh.vertices[j * meshResolution] + Vector3.forward * worldSize + Vector3.right * rightOffset;
 					}
 
@@ -350,31 +292,35 @@ namespace SimpleTerrainGenerator
 				}
 				else if (neighbor.CellSize < CellSize) //low res to high res
 				{
-                    Debug.Log("transiton");
                     trigIndex = TransitionLowHigh(ref triangles, trigIndex, neighborStart, neighborEnd, ourStart, ourEnd, isRight);
 				}
 				else if (neighbor.CellSize > CellSize) //high res to low res
 				{
-
+                    trigIndex = TranitionHighLow(ref triangles, trigIndex, neighborStart, neighborEnd, ourStart, ourEnd, isRight);
+                    return;
 				}
 			}
 
-
             //Todo: remove old transition and if backward grab left merge
-            Vector3[] finalVertices = new Vector3[terrainMesh.vertexCount + vertices.Length];
-            int[] finalTriangles = new int[terrainMesh.triangles.Length + triangles.Length];
+            int vertDestination = transitionVertForwardStart;
+            int trigDestination = transitionTrigForwardStart;
+            if (isRight)
+            {
+				vertDestination = transitionVertRightStart;
+                trigDestination = transitionTrigRightStart;
+            }
 
-            Array.Copy(terrainMesh.vertices, 0, finalVertices, 0, terrainMesh.vertices.Length);
-            Array.Copy(vertices, 0, finalVertices, terrainMesh.vertices.Length, vertices.Length);
+            Vector3[] finalVertices = new Vector3[vertDestination + vertices.Length];
+            int[] finalTriangles = new int[trigDestination + triangles.Length];
 
-			Array.Copy(terrainMesh.triangles, 0, finalTriangles, 0, terrainMesh.triangles.Length);
-			Array.Copy(triangles, 0, finalTriangles, terrainMesh.triangles.Length, triangles.Length);
+			Array.Copy(terrainMesh.vertices, finalVertices, vertDestination);
+            Array.Copy(terrainMesh.triangles, finalTriangles, trigDestination);
 
-            Debug.Log($"final: {finalVertices.Length}, original: {terrainMesh.vertices.Length}");
-            Debug.Log($"final: {finalTriangles.Length}, original: {terrainMesh.triangles.Length}");
+            Array.Copy(vertices, 0, finalVertices, vertDestination, vertices.Length);
+            Array.Copy(triangles, 0, finalTriangles, trigDestination, triangles.Length);
 
-            terrainMesh.vertices = finalVertices;
-            terrainMesh.triangles = finalTriangles;
+			terrainMesh.vertices = finalVertices;
+			terrainMesh.triangles = finalTriangles;
 		}
 
         /// <summary>
@@ -395,7 +341,7 @@ namespace SimpleTerrainGenerator
             if(count != neighborEnd - neighborStart)
             {
                 Debug.LogError("us and neighbor are not equivalent, but equivalent transition was called");
-                return 100000;
+                return 0;
             }
 
             for (int i = 1; i < count; i++)
@@ -436,7 +382,7 @@ namespace SimpleTerrainGenerator
 		}
 
 		/// <summary>
-		///  Makes triangles between the start and end vertex indices, for when neighbor has a higher resolution that us
+		///  Makes triangles between the start and end vertex indices, for when neighbor has a higher resolution than us
 		/// </summary>
 		/// <param name="triangles">Ref to triangles</param>
 		/// <param name="trigIndex">Trianlge index</param>
@@ -451,23 +397,26 @@ namespace SimpleTerrainGenerator
 			int count = ourEnd - ourStart;
             int vertsPerCount = (neighborEnd - neighborStart) / count;
 
-            //Debug.Log(neighborStart);
-
             int i = 0;
             int our0 = isRight ? ourStart + (meshResolution - 1) * meshResolution : ourStart * meshResolution + meshResolution - 1;
             for (int neighborVert = neighborStart; neighborVert < neighborEnd; neighborVert++)
             {
-                Debug.Log(neighborVert);
-
                 if (i >= vertsPerCount)
                 {
                     int our1 = our0 + (isRight ? 1 : meshResolution);
 
-
+                    if (isRight)
+                    {
 						triangles[trigIndex] = our0;
 						triangles[trigIndex + 1] = our1;
-
-                    triangles[trigIndex + 2] = neighborVert - (vertsPerCount / 2);
+						triangles[trigIndex + 2] = neighborVert - (vertsPerCount / 2);
+                    }
+                    else
+                    {
+						triangles[trigIndex] = our1;
+						triangles[trigIndex + 1] = our0;
+						triangles[trigIndex + 2] = neighborVert - (vertsPerCount / 2);
+					}
                     trigIndex += 3;
 
                     our0 = our1;
@@ -497,9 +446,21 @@ namespace SimpleTerrainGenerator
             return trigIndex;
 		}
 
-        private void TranitionHighLow()
+		/// <summary>
+		/// Makes triangles between the start and end vertex indices, for when a neighbor has a lower resolution than us
+		/// </summary>
+		/// <param name="triangles">Ref to triangles</param>
+		/// <param name="trigIndex">Trianlge index</param>
+		/// <param name="neighborStart">Index start of the neighbor vertices</param>
+		/// <param name="neighborEnd">Index end of the neighbors vertices</param>
+		/// <param name="ourStart">Index start of our vertices</param>
+		/// <param name="ourEnd">Index end of our vertices</param>
+		/// <param name="isRight">Right or forward</param>
+		/// <returns></returns>
+		private int TranitionHighLow(ref int[] triangles, int trigIndex, int neighborStart, int neighborEnd, int ourStart, int ourEnd, bool isRight)
         {
-
+            Debug.LogError("no high to low");
+            return 0;
         }
 
 		/// <summary>
@@ -514,7 +475,10 @@ namespace SimpleTerrainGenerator
             else
             {
                 if (terrainObject != null)
+                {
                     ScriptableObject.Destroy(terrainObject);
+					ScriptableObject.Destroy(terrainMesh);
+                }
 
                 subChunks = new Chunk[4];
                 int subChunkWidth = chunkSize / 2;
@@ -545,7 +509,8 @@ namespace SimpleTerrainGenerator
 
                 subChunks = null;
                 updateMesh = true;
-                isQuad = false;
+                updateTransition = true;
+				isQuad = false;
             }
         }
 
@@ -561,10 +526,10 @@ namespace SimpleTerrainGenerator
                 if (terrainObject != null)
                 {
                     ScriptableObject.Destroy(terrainObject);
-                    terrainMesh.Clear();
+					ScriptableObject.Destroy(terrainMesh);
 
-                    //tell neighbors that our chunk has been destroy and that the parent of this is the new neighbor
-                    for (int i = 0; i < 4; i++)
+					//tell neighbors that our chunk has been destroy and that the parent of this is the new neighbor
+					for (int i = 0; i < 4; i++)
                     {
                         for (int j = 0; j < neighbors[i].Count; j++)
                         {
@@ -663,9 +628,9 @@ namespace SimpleTerrainGenerator
                 neighbors[(int)direction].Add(replacement);
             }
 
-            if(direction == AdjacentDirections.right || direction == AdjacentDirections.backward)
+            if(direction == AdjacentDirections.right || direction == AdjacentDirections.forward)
             {
-                updateMesh = true;
+				updateTransition = true;
 			}
         }
 
@@ -717,40 +682,6 @@ namespace SimpleTerrainGenerator
                     }
                 }
             }
-
-            // neighbor right
-            Chunk neighbor = neighbors[(int)AdjacentDirections.right][0];
-
-            /*for (int i = 0; i < neighbor.meshResolution; i++)
-            {
-				int index = i;
-				Vector3 pos = neighbor.terrainMesh.vertices[index] + Vector3.right * worldSize + WorldCorner;
-                Handles.Label(pos, $"{index}");
-			}
-
-			neighbor = neighbors[(int)AdjacentDirections.forward][0];
-			for (int i = 0; i < neighbor.meshResolution; i++)
-			{
-                int index = i * meshResolution;
-				Vector3 pos = neighbor.terrainMesh.vertices[index] + Vector3.forward * worldSize + WorldCorner;
-				Handles.Label(pos, $"{index}");
-			}*/
-
-			// our right
-			/*for (int i = 0; i < meshResolution; i++)
-            {
-                int index = i + (meshResolution - 1) * meshResolution;
-				Vector3 ourVert = terrainMesh.vertices[index] + WorldCorner;
-				Handles.Label(ourVert, $"{index}");
-			}
-
-            //our forward
-			for (int i = 0; i < meshResolution; i++)
-			{
-                int index = i * meshResolution + meshResolution - 1;
-				Vector3 ourVert = terrainMesh.vertices[index] + WorldCorner;
-				Handles.Label(ourVert, $"{index}");
-			}*/
 		}
     }
 }

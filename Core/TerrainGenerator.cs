@@ -35,6 +35,9 @@ namespace SimpleTerrainGenerator {
             get { return (int)Mathf.Pow(2, lodLevelsDistance.Length); }
         }
 
+        [Header("testing")]
+        public int spliter = 0;
+
         private void Awake()
         {
             worldChunks = new List<MainChunk>();
@@ -64,7 +67,7 @@ namespace SimpleTerrainGenerator {
                 //CreateMainChunks();
                 LodUpdate();
                 MeshUpdate();
-            }
+			}
         }
 
         private void CreateMainChunks()
@@ -108,34 +111,24 @@ namespace SimpleTerrainGenerator {
             //worldChunks.Add(chunk);
         }
 
-        [ContextMenu("split test")]
-        void SplitMainChunk()
-        {
-            worldChunks[1].Split();
-        }
-
-        [ContextMenu("merge test")]
-        void MergeMainChunk()
-        {
-            worldChunks[1].Merge();
-        }
-
-		[ContextMenu("transition test")]
-		void TransitionUpdateChunk()
-		{
-			worldChunks[4].transitionUpdate();
-		}
-
 		private void LodUpdate()
         {
             
         }
 
-        private void MeshUpdate()
+		/// <summary>
+		/// Updates all chunks meshs if updateMesh is true
+		/// </summary>
+		private void MeshUpdate()
         {
             foreach(MainChunk chunk in worldChunks)
             {
-                chunk.MeshUpdate();
+                chunk.TerrainMeshUpdate();
+            }
+
+            foreach(MainChunk chunk in worldChunks)
+            {
+                chunk.TransitionMeshUpdate();
             }
         }
 
@@ -152,28 +145,34 @@ namespace SimpleTerrainGenerator {
             }
             return false;
         }
-    
-        private void GenerateNewChunk()
-        {
+        
+		[ContextMenu("split test")]
+		void SplitMainChunk()
+		{
+			worldChunks[spliter].Split();
+		}
 
-        }
+		[ContextMenu("merge test")]
+		void MergeMainChunk()
+		{
+			worldChunks[spliter].Merge();
+		}
 
-        private void OnDrawGizmos()
+		[ContextMenu("transition test")]
+		void TransitionUpdateChunk()
+		{
+			worldChunks[4].TransitionMeshUpdate();
+		}
+
+		private void OnDrawGizmos()
         {
             if (worldChunks == null || worldChunks.Count == 0)
                 return;
 
-            worldChunks[4].Debugger();
-
-            /*for (int i = 0; i < worldChunks.Count; i++)
-            {
-                Handles.Label(worldChunks[i].WorldCenter, $"{i}");
-            }*/
-
-			/*for (int i = 0; i < worldChunks.Count; i++)
+			for (int i = 0; i < worldChunks.Count; i++)
             {
                 worldChunks[i].Debugger();
-            }*/
+            }
 		}
     }
 }
