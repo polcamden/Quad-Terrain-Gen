@@ -263,6 +263,10 @@ namespace SimpleTerrainGenerator
 
 				int neighborStart = vertOffset + vertIndex;
 				int neighborEnd = neighborStart + neighbor.meshResolution;
+                if (neighbor.CellSize > CellSize)
+                {
+                    neighborEnd = neighborStart + neighbor.meshResolution * neighbor.chunkSize / chunkSize;
+				}
 
                 float neighborsRatio = 1f / neighbors[(int)dir].Count;
 				int ourStart = (int)(neighborsRatio * meshResolution) * i;
@@ -284,20 +288,19 @@ namespace SimpleTerrainGenerator
 
 					vertIndex++;
 				}
-
-                //triangle between us and neighbor vertices
+				
+				//triangle between us and neighbor vertices
 				if (neighbor.CellSize == CellSize) //equal res
 				{
 					trigIndex = TransitionEquivalent(ref triangles, trigIndex, neighborStart, neighborEnd, ourStart, ourEnd, isRight);
 				}
 				else if (neighbor.CellSize < CellSize) //low res to high res
 				{
-                    trigIndex = TransitionLowHigh(ref triangles, trigIndex, neighborStart, neighborEnd, ourStart, ourEnd, isRight);
+					trigIndex = TransitionLowHigh(ref triangles, trigIndex, neighborStart, neighborEnd, ourStart, ourEnd, isRight);
 				}
 				else if (neighbor.CellSize > CellSize) //high res to low res
 				{
                     trigIndex = TranitionHighLow(ref triangles, trigIndex, neighborStart, neighborEnd, ourStart, ourEnd, isRight);
-                    return;
 				}
 			}
 
@@ -319,6 +322,7 @@ namespace SimpleTerrainGenerator
             Array.Copy(vertices, 0, finalVertices, vertDestination, vertices.Length);
             Array.Copy(triangles, 0, finalTriangles, trigDestination, triangles.Length);
 
+            terrainMesh.Clear();
 			terrainMesh.vertices = finalVertices;
 			terrainMesh.triangles = finalTriangles;
 		}
@@ -456,17 +460,60 @@ namespace SimpleTerrainGenerator
 		/// <param name="ourStart">Index start of our vertices</param>
 		/// <param name="ourEnd">Index end of our vertices</param>
 		/// <param name="isRight">Right or forward</param>
-		/// <returns></returns>
+		/// <returns>the new trigIndex</returns>
 		private int TranitionHighLow(ref int[] triangles, int trigIndex, int neighborStart, int neighborEnd, int ourStart, int ourEnd, bool isRight)
         {
-            for (int ourVert = ourStart; ourVert < ourEnd; ourVert++)
+			int count = ourEnd - ourStart;
+			int vertsPerCount = (neighborEnd - neighborStart) / count;
+
+			int i = neighborStart;
+			int our0 = isRight ? ourStart + (meshResolution - 1) * meshResolution : ourStart * meshResolution + meshResolution - 1;
+			for (int ourVert = ourStart; ourVert < ourEnd - 1; ourVert++)
             {
+                int our1 = our0;
+                our1 += isRight ? 1 : meshResolution;
 
+                if (ourVert % vertsPerCount == vertsPerCount / 2)
+                {
+					triangles[trigIndex] = our0;
+					if (isRight)
+                    {
+                        triangles[trigIndex + 1] = i + 1;
+                        triangles[trigIndex + 2] = i;
+                    }
+                    else
+                    {
+						triangles[trigIndex + 1] = i;
+						triangles[trigIndex + 2] = i + 1;
+					}
+
+                    trigIndex += 3;
+					i++;
+                }
+
+                if (isRight)
+                {
+                    triangles[trigIndex] = our0;
+                    triangles[trigIndex + 1] = our1;
+                }
+                else
+                {
+					triangles[trigIndex] = our1;
+					triangles[trigIndex + 1] = our0;
+				}
+                triangles[trigIndex + 2] = i;
+				trigIndex += 3;
+
+                our0 = our1;
             }
+			
 
+			/*triangles[trigIndex] = our0;
+            triangles[trigIndex + 1] = our0 + 1;
+            triangles[trigIndex + 2] = neighborStart;
+            trigIndex += 3;*/
 
-
-            return 0;
+            return trigIndex;
         }
 
 		/// <summary>
@@ -603,7 +650,6 @@ namespace SimpleTerrainGenerator
 					subChunks[i].ReplaceNeighbor(null, neighbors[relUp][0], (AdjacentDirections)relUp);
 				}
 				
-
                 //tell neighbors of new children
                 foreach(Chunk rightNeightbor in neighbors[relRight])
                 {
