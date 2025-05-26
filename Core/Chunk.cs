@@ -459,7 +459,13 @@ namespace SimpleTerrainGenerator
 		/// <returns></returns>
 		private int TranitionHighLow(ref int[] triangles, int trigIndex, int neighborStart, int neighborEnd, int ourStart, int ourEnd, bool isRight)
         {
-            Debug.LogError("no high to low");
+            for (int ourVert = ourStart; ourVert < ourEnd; ourVert++)
+            {
+
+            }
+
+
+
             return 0;
         }
 
