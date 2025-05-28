@@ -9,22 +9,31 @@ namespace SimpleTerrainGenerator {
         [Header("Map Settings")]
         [SerializeField] private TerrainMap terrainMap;
         [Header("Chunk Settings")]
+
         [SerializeField]
         private int mainChunkWorldSize = 4096;
+
         [SerializeField]
         [Tooltip("How many verticies a chunk will have across")]
         private int chunkResolution = 64;
+
         [Header("Level of Detail")]
+
         [SerializeField]
         [Tooltip("How many chunks are made from the camera to the ")]
         private int innerWorldSize = 3;
+
         [SerializeField]
         [Tooltip("How far away from a chunk the camera needs to be " +
             "for a chunk to be divided. Greatest to Least")]
-        private int[] lodLevelsDistance = { 2048, 1024, 512 };
+        private float[] lodLevelsDistance = { 512, 1024, 2048 };
+
         [SerializeField]
         [Tooltip("what transform does the level of detail follow")]
         private Transform lodCenter;
+
+        [Header("Debug")]
+        bool debugger = false;
         //-privates----------------------------------------------------
         private List<MainChunk> worldChunks;
         
@@ -34,6 +43,9 @@ namespace SimpleTerrainGenerator {
         {
             get { return (int)Mathf.Pow(2, lodLevelsDistance.Length); }
         }
+
+        [Header("testing")]
+        public int spliter = 0;
 
         private void Awake()
         {
@@ -64,7 +76,7 @@ namespace SimpleTerrainGenerator {
                 //CreateMainChunks();
                 LodUpdate();
                 MeshUpdate();
-            }
+			}
         }
 
         private void CreateMainChunks()
@@ -101,41 +113,29 @@ namespace SimpleTerrainGenerator {
                         worldChunks[i].ReplaceNeighbor(null, adjacent, (AdjacentDirections)x);
                 }
             }
-
-            //Vector2Int position = new Vector2Int(0, 0);
-            //MainChunk chunk = new MainChunk(terrainMap, position, mainChunkSize, chunkResolution, mainChunkWorldSize);
-
-            //worldChunks.Add(chunk);
         }
-
-        [ContextMenu("split test")]
-        void SplitMainChunk()
-        {
-            worldChunks[5].Split();
-        }
-
-        [ContextMenu("merge test")]
-        void MergeMainChunk()
-        {
-            worldChunks[5].Merge();
-        }
-
-		[ContextMenu("transition test")]
-		void TransitionUpdateChunk()
-		{
-			worldChunks[4].transitionUpdate();
-		}
 
 		private void LodUpdate()
         {
+			foreach (MainChunk chunk in worldChunks)
+			{
+				chunk.LodUpdate(lodCenter.position, lodLevelsDistance);
+			}
+		}
 
-        }
-
-        private void MeshUpdate()
+		/// <summary>
+		/// Updates all chunks meshs if updateMesh is true
+		/// </summary>
+		private void MeshUpdate()
         {
             foreach(MainChunk chunk in worldChunks)
             {
-                chunk.MeshUpdate();
+                chunk.TerrainMeshUpdate();
+            }
+
+            foreach(MainChunk chunk in worldChunks)
+            {
+                chunk.TransitionMeshUpdate();
             }
         }
 
@@ -152,28 +152,37 @@ namespace SimpleTerrainGenerator {
             }
             return false;
         }
-    
-        private void GenerateNewChunk()
+        
+		[ContextMenu("split test")]
+		void SplitMainChunk()
+		{
+			worldChunks[spliter].Split();
+		}
+
+		[ContextMenu("merge test")]
+		void MergeMainChunk()
+		{
+			worldChunks[spliter].Merge();
+		}
+
+		[ContextMenu("transition test")]
+		void TransitionUpdateChunk()
+		{
+			worldChunks[4].TransitionMeshUpdate();
+		}
+
+		private void OnDrawGizmos()
         {
-
-        }
-
-        private void OnDrawGizmos()
-        {
-            if (worldChunks == null || worldChunks.Count == 0)
-                return;
-
-            worldChunks[4].Debugger();
-
-            /*for (int i = 0; i < worldChunks.Count; i++)
+            if (debugger)
             {
-                Handles.Label(worldChunks[i].WorldCenter, $"{i}");
-            }*/
+                if (worldChunks == null || worldChunks.Count == 0)
+                    return;
 
-			/*for (int i = 0; i < worldChunks.Count; i++)
-            {
-                worldChunks[i].Debugger();
-            }*/
+                for (int i = 0; i < worldChunks.Count; i++)
+                {
+                    worldChunks[i].Debugger();
+                }
+            }
 		}
     }
 }
