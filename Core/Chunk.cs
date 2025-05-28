@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using UnityEditor;
 using UnityEngine;
 
@@ -92,12 +93,39 @@ namespace SimpleTerrainGenerator
         {
             float dist = Vector3.Distance(WorldCenter, center);
 
-            int newDepth = 0;
-            for (int i = 0;i < lodLevels.Length; i++)
+            int newDepth = (int)Mathf.Pow(2, lodLevels.Length);
+            for (int i = 1; i < lodLevels.Length; i++)
             {
-                
+                if (lodLevels[i - 1] <= dist && dist <= lodLevels[i])
+                {
+                    newDepth = (int)Mathf.Pow(2, i);
+                    break;
+                }
             }
-        }
+
+            if(chunkSize <= newDepth)
+            {
+                if (isQuad)
+                {
+                    Merge();
+                }
+            }
+            else if(chunkSize > newDepth)
+            {
+                if (!isQuad)
+                {
+                    Split();
+                }
+			}
+
+			if (isQuad)
+			{
+				for (int i = 0; i < subChunks.Length; i++)
+				{
+					subChunks[i].LodUpdate(center, lodLevels);
+				}
+			}
+		}
 
         /// <summary>
         /// Called by TerrainGenerator. Recursivly goes thew chunks to check for update
@@ -116,7 +144,7 @@ namespace SimpleTerrainGenerator
                 if (terrainObject == null) //Create mesh
                 {
                     terrainObject = new GameObject("Terrain-" + chunkPos, typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider));
-                    terrainObject.transform.position = new Vector3(chunkPos.x * (worldSize / chunkSize), 0, chunkPos.y * (worldSize / chunkSize));
+                    terrainObject.transform.position = WorldCorner;
                     terrainObject.GetComponent<MeshRenderer>().material = mainChunk.Material;
                     terrainMesh = terrainObject.GetComponent<MeshFilter>().mesh;
 
@@ -230,8 +258,8 @@ namespace SimpleTerrainGenerator
             transitionVertForwardStart = vertices.Length;
 			transitionTrigForwardStart = triangles.Length;
 
-			Debug.Log($"vert missMatch: {vertices.Length - vertIndex}");
-			Debug.Log($"Trig missMatch: {triangles.Length - trigIndex}");
+			//Debug.Log($"vert missMatch: {vertices.Length - vertIndex}");
+			//Debug.Log($"Trig missMatch: {triangles.Length - trigIndex}");
 		}
 
 		/// <summary>
@@ -327,6 +355,7 @@ namespace SimpleTerrainGenerator
             terrainMesh.Clear();
 			terrainMesh.vertices = finalVertices;
 			terrainMesh.triangles = finalTriangles;
+			terrainMesh.MarkModified();
 		}
 
         /// <summary>
@@ -526,7 +555,7 @@ namespace SimpleTerrainGenerator
             if (isQuad == true)
             {
                 Debug.LogError("Trying to split chunk while already split");
-            }
+			}
             else
             {
                 if (terrainObject != null)
@@ -557,7 +586,7 @@ namespace SimpleTerrainGenerator
             if (isQuad == false)
             {
                 Debug.LogError("Trying to merge chunk while already merged");
-            }
+			}
             else
             {
                 InheritNeighborsFromSubChunks();
@@ -573,7 +602,7 @@ namespace SimpleTerrainGenerator
         {
             if (isQuad)
             {
-                Debug.LogError("Can not recursivly merge");
+                Debug.LogError("Can not destroy parent only leafs");
                 //InharitSubChunksNeighbors();
             }
             else
@@ -606,7 +635,6 @@ namespace SimpleTerrainGenerator
 			for (int i = 0; i < neighbors.Length; i++)
 			{
 				neighbors[i] = new List<Chunk>();
-				Debug.Log(neighbors[i].Count);
 			}
 
 			for (int i = 0; i < subChunks.Length; i++)
@@ -634,32 +662,64 @@ namespace SimpleTerrainGenerator
         {
 			for (int i = 0; i < subChunks.Length; i++)
 			{
+                Chunk subChunk = subChunks[i];
+
 				int relLeft = (i + 3) % 4;
 				int relRight = (i + 1) % 4;
 				int relDown = (i + 2) % 4;
 				int relUp = i;
 
 				//subchunk Neighbors
-				subChunks[i].ReplaceNeighbor(null, subChunks[relLeft], (AdjacentDirections)relLeft);
-				subChunks[i].ReplaceNeighbor(null, subChunks[relRight], (AdjacentDirections)relDown);
+				subChunk.ReplaceNeighbor(null, subChunks[relLeft], (AdjacentDirections)relLeft);
+				subChunk.ReplaceNeighbor(null, subChunks[relRight], (AdjacentDirections)relDown);
 				//Give our neighbors to children Todo: fix for split neighbors
-                if(neighbors[relRight].Count != 0)
+
+				if(neighbors[relRight].Count == 1)
                 {
-					subChunks[i].ReplaceNeighbor(null, neighbors[relRight][0], (AdjacentDirections)relRight);
-				}
-				if (neighbors[relUp].Count != 0)
-				{
-					subChunks[i].ReplaceNeighbor(null, neighbors[relUp][0], (AdjacentDirections)relUp);
-				}
-				
-                //tell neighbors of new children
-                foreach(Chunk rightNeightbor in neighbors[relRight])
-                {
-                    rightNeightbor.ReplaceNeighbor(this, subChunks[i], (AdjacentDirections)relLeft);
+					subChunk.ReplaceNeighbor(null, neighbors[relRight][0], (AdjacentDirections)relRight);
+                    neighbors[relRight][0].ReplaceNeighbor(this, subChunk, (AdjacentDirections)relLeft);
                 }
-                foreach(Chunk upNeighbor in neighbors[relUp])
+                else
                 {
-					upNeighbor.ReplaceNeighbor(this, subChunks[i], (AdjacentDirections)relDown);
+					int start = i % 2 == 0 ? subChunk.chunkPos.y : subChunk.chunkPos.x;
+					int end = start + subChunks[i].chunkSize;
+					for (int x = 0; x < neighbors[relRight].Count; x++)
+					{
+						Chunk neighbor = neighbors[relRight][x];
+
+						int edgePos = i % 2 == 0 ? neighbor.chunkPos.y : neighbor.chunkPos.x;
+						
+						if (start <= edgePos && end > edgePos)
+						{
+
+							subChunk.ReplaceNeighbor(null, neighbor, (AdjacentDirections)relRight);
+							neighbor.ReplaceNeighbor(this, subChunk, (AdjacentDirections)relLeft);
+						}
+					}
+				}
+
+                if (neighbors[relUp].Count == 1)
+                {
+                    subChunk.ReplaceNeighbor(null, neighbors[relUp][0], (AdjacentDirections)relUp);
+                    neighbors[relUp][0].ReplaceNeighbor(this, subChunk, (AdjacentDirections)relDown);
+                }
+                else
+                {
+					int start = i % 2 == 1 ? subChunk.chunkPos.y : subChunk.chunkPos.x;
+					int end = start + subChunks[i].chunkSize;
+					for (int x = 0; x < neighbors[relUp].Count; x++)
+					{
+						Chunk neighbor = neighbors[relUp][x];
+
+						int edgePos = i % 2 == 1 ? neighbor.chunkPos.y : neighbor.chunkPos.x;
+
+						if (start <= edgePos && end > edgePos)
+						{
+
+							subChunk.ReplaceNeighbor(null, neighbor, (AdjacentDirections)relUp);
+							neighbor.ReplaceNeighbor(this, subChunk, (AdjacentDirections)relDown);
+						}
+					}
 				}
 			}
 		}

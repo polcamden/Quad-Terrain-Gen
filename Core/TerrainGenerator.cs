@@ -9,22 +9,31 @@ namespace SimpleTerrainGenerator {
         [Header("Map Settings")]
         [SerializeField] private TerrainMap terrainMap;
         [Header("Chunk Settings")]
+
         [SerializeField]
         private int mainChunkWorldSize = 4096;
+
         [SerializeField]
         [Tooltip("How many verticies a chunk will have across")]
         private int chunkResolution = 64;
+
         [Header("Level of Detail")]
+
         [SerializeField]
         [Tooltip("How many chunks are made from the camera to the ")]
         private int innerWorldSize = 3;
+
         [SerializeField]
         [Tooltip("How far away from a chunk the camera needs to be " +
             "for a chunk to be divided. Greatest to Least")]
-        private float[] lodLevelsDistance = { 2048, 1024, 512 };
+        private float[] lodLevelsDistance = { 512, 1024, 2048 };
+
         [SerializeField]
         [Tooltip("what transform does the level of detail follow")]
         private Transform lodCenter;
+
+        [Header("Debug")]
+        bool debugger = false;
         //-privates----------------------------------------------------
         private List<MainChunk> worldChunks;
         
@@ -104,11 +113,6 @@ namespace SimpleTerrainGenerator {
                         worldChunks[i].ReplaceNeighbor(null, adjacent, (AdjacentDirections)x);
                 }
             }
-
-            //Vector2Int position = new Vector2Int(0, 0);
-            //MainChunk chunk = new MainChunk(terrainMap, position, mainChunkSize, chunkResolution, mainChunkWorldSize);
-
-            //worldChunks.Add(chunk);
         }
 
 		private void LodUpdate()
@@ -169,12 +173,15 @@ namespace SimpleTerrainGenerator {
 
 		private void OnDrawGizmos()
         {
-            if (worldChunks == null || worldChunks.Count == 0)
-                return;
-
-			for (int i = 0; i < worldChunks.Count; i++)
+            if (debugger)
             {
-                worldChunks[i].Debugger();
+                if (worldChunks == null || worldChunks.Count == 0)
+                    return;
+
+                for (int i = 0; i < worldChunks.Count; i++)
+                {
+                    worldChunks[i].Debugger();
+                }
             }
 		}
     }
