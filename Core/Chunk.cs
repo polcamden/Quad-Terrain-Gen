@@ -1,12 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
 using UnityEditor;
-using UnityEditor.Experimental.GraphView;
 using UnityEngine;
-using UnityEngine.Rendering;
-using static UnityEditor.Searcher.SearcherWindow.Alignment;
 
 namespace SimpleTerrainGenerator
 {
@@ -92,9 +88,15 @@ namespace SimpleTerrainGenerator
         /// <summary>
         /// Called by TerrainGenerator to check for merge/split 
         /// </summary>
-        public void LodUpdate()
+        public void LodUpdate(Vector3 center, float[] lodLevels)
         {
+            float dist = Vector3.Distance(WorldCenter, center);
 
+            int newDepth = 0;
+            for (int i = 0;i < lodLevels.Length; i++)
+            {
+                
+            }
         }
 
         /// <summary>

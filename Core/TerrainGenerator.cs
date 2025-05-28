@@ -21,7 +21,7 @@ namespace SimpleTerrainGenerator {
         [SerializeField]
         [Tooltip("How far away from a chunk the camera needs to be " +
             "for a chunk to be divided. Greatest to Least")]
-        private int[] lodLevelsDistance = { 2048, 1024, 512 };
+        private float[] lodLevelsDistance = { 2048, 1024, 512 };
         [SerializeField]
         [Tooltip("what transform does the level of detail follow")]
         private Transform lodCenter;
@@ -113,8 +113,11 @@ namespace SimpleTerrainGenerator {
 
 		private void LodUpdate()
         {
-            
-        }
+			foreach (MainChunk chunk in worldChunks)
+			{
+				chunk.LodUpdate(lodCenter.position, lodLevelsDistance);
+			}
+		}
 
 		/// <summary>
 		/// Updates all chunks meshs if updateMesh is true
