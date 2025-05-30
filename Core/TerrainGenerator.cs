@@ -3,41 +3,26 @@ using UnityEngine;
 using System.Collections.Generic;
 using UnityEditor;
 
-namespace SimpleTerrainGenerator {
+namespace QuadTerrainGen {
     public class TerrainGenerator : MonoBehaviour
     {
         [Header("Map Settings")]
         [SerializeField] private TerrainMap terrainMap;
         [Header("Chunk Settings")]
-
-        [SerializeField]
-        private int mainChunkWorldSize = 4096;
-
-        [SerializeField]
+		[SerializeField] private int mainChunkWorldSize = 4096;
         [Tooltip("How many verticies a chunk will have across")]
-        private int chunkResolution = 64;
-
+		[SerializeField] private int chunkResolution = 64;
         [Header("Level of Detail")]
-
-        [SerializeField]
+		[Tooltip("what transform does the level of detail follow")]
+		[SerializeField] private Transform lodCenter;
         [Tooltip("How many chunks are made from the camera to the ")]
-        private int innerWorldSize = 3;
-
-        [SerializeField]
-        [Tooltip("How far away from a chunk the camera needs to be " +
-            "for a chunk to be divided. Greatest to Least")]
-        private float[] lodLevelsDistance = { 512, 1024, 2048 };
-
-        [SerializeField]
-        [Tooltip("what transform does the level of detail follow")]
-        private Transform lodCenter;
-
+		[SerializeField] private int innerWorldSize = 3;
+        [Tooltip("How far away from a chunk the camera needs to be for a chunk to be divided. Greatest to Least")]
+		[SerializeField] private float[] lodLevelsDistance = { 0, 1024, 2048, 6048 };
         [Header("Debug")]
-        bool debugger = false;
-        //-privates----------------------------------------------------
+        [SerializeField] private bool debugger = false;
+
         private List<MainChunk> worldChunks;
-        
-        //-accessors---------------------------------------------------
 
         public int mainChunkSize
         {
