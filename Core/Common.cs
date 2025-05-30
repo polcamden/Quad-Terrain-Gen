@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace SimpleTerrainGenerator
+namespace QuadTerrainGen
 {
     public static class Common
     {

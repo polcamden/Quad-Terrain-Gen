@@ -1,7 +1,7 @@
 using Unity.VisualScripting;
 using UnityEngine;
 
-namespace SimpleTerrainGenerator
+namespace QuadTerrainGen
 {
     public class MainChunk : Chunk
     {
@@ -17,7 +17,7 @@ namespace SimpleTerrainGenerator
         {
             this.map = map;
             mainChunk = this;
-            //heightMap = map.GetHeightMap(chunkPos);
+            //heightMap = ;
         }
     }
 }

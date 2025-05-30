@@ -2,10 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
 
-namespace SimpleTerrainGenerator
+namespace QuadTerrainGen
 {
 	public class Chunk
     {
@@ -209,13 +210,15 @@ namespace SimpleTerrainGenerator
             int vertIndex = 0;
             int trigIndex = 0;
 
-            //generate interior mesh
+			//generate interior mesh
+			Unity.Mathematics.Random ran = new Unity.Mathematics.Random(2);
 
             for (int x = 0; x < meshResolution; x++)
             {
                 for (int y = 0; y < meshResolution; y++)
                 {
-                    vertices[vertIndex] = new Vector3(x * cellSize, 0, y * cellSize);
+                    float height = 0;
+                    vertices[vertIndex] = new Vector3(x * cellSize, height, y * cellSize);
 
                     if (x > 0 && y > 0)
                     {
