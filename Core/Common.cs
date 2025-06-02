@@ -33,6 +33,4 @@ namespace QuadTerrainGen
         backward,
         left
     }
-
-    
 }

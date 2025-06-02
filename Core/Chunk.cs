@@ -12,11 +12,9 @@ namespace QuadTerrainGen
     {
         public MainChunk mainChunk;
 
-        private Vector2Int chunkPos;
-        private int chunkSize;
-        private float worldSize;
-
-        private int meshResolution;
+        public Vector2Int chunkPos { get; private set; }
+        public int chunkSize { get; private set; }
+		public int worldSize { get; private set; }
 
         //Quad
         private bool isQuad;
@@ -24,7 +22,8 @@ namespace QuadTerrainGen
         //Quad mesh data
         private GameObject terrainObject;
         private Mesh terrainMesh;
-        private int transitionVertForwardStart;
+		private int meshResolution;
+		private int transitionVertForwardStart;
         private int transitionTrigForwardStart;
 		private int transitionVertRightStart;
 		private int transitionTrigRightStart;
@@ -69,7 +68,7 @@ namespace QuadTerrainGen
 			}
         }
 
-        public Chunk(MainChunk mainChunk, Vector2Int chunkPos, int chunkSize, int meshResolution, float worldSize)
+        public Chunk(MainChunk mainChunk, Vector2Int chunkPos, int chunkSize, int meshResolution, int worldSize)
         {
             this.mainChunk = mainChunk;
             this.chunkPos = chunkPos;
@@ -217,7 +216,7 @@ namespace QuadTerrainGen
             {
                 for (int y = 0; y < meshResolution; y++)
                 {
-                    float height = 0;
+                    float height = mainChunk.GetHeight((int)(x * cellSize) + (int)WorldCorner.x, (int)(y * cellSize) + (int)WorldCorner.z);
                     vertices[vertIndex] = new Vector3(x * cellSize, height, y * cellSize);
 
                     if (x > 0 && y > 0)
@@ -571,7 +570,7 @@ namespace QuadTerrainGen
                 int subChunkWidth = chunkSize / 2;
                 for (int i = 0; i < subChunks.Length; i++)
                 {
-                    subChunks[i] = new Chunk(mainChunk, chunkPos + Common.subChunkPositions[i] * subChunkWidth, subChunkWidth, meshResolution, worldSize / 2f);
+                    subChunks[i] = new Chunk(mainChunk, chunkPos + Common.subChunkPositions[i] * subChunkWidth, subChunkWidth, meshResolution, worldSize / 2);
                 }
 
                 RenounceNeighborsToSubChunks();

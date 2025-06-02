@@ -16,9 +16,16 @@ namespace QuadTerrainGen
             get { return material; }
         }
 
-        public float[,] GetHeightMap(Vector2Int mainPos, Vector2Int size)
+        public float[,] GetHeightMap(Vector2Int mainPosition, int size)
         {
-            return new float[4096, 4096];
+            float[,] heightMap = new float[size,size];
+
+            for (int i = components.Count - 1; i >= 0; i--)
+            {
+                components[i].loadOntoData(ref heightMap, mainPosition);
+            }
+            
+            return heightMap;
         }
     }
 }

@@ -1,29 +1,42 @@
 using System;
 using System.IO;
-using Unity.VisualScripting;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 public class HgtToTrn : EditorWindow
 {
 	private string hgtPath = "";
-	private string trnPath = "";
+	private string trnPath = "Assets";
 
-	private bool hgtIsOneArcSec = false;
+	private bool hgtIsOneArcSec = true;
 	private int trnResolution = 4096;
+	private Vector2Int positionOffset = Vector2Int.zero;
+	private Vector2Int savePos = Vector2Int.zero;
 
-	private float[,] heighMap;
+	private float[,] heightMap;
 	Texture2D heightMapTexture;
 	private bool MapGenerated;
 
 	private Vector2 scrollPos;
 
+	public int hgtSpacing
+	{
+		get
+		{
+			return hgtIsOneArcSec ? 30 : 92;
+		}
+	}
+
 	[MenuItem("Tools/Quad Terrain Gen/Hgt To Terrain")]
 	public static void ShowExample()
 	{
 		HgtToTrn wnd = GetWindow<HgtToTrn>();
-		
+
+		Vector2 size = new Vector2(512 + 24, 720);
+		wnd.minSize = size;
+		wnd.maxSize = size;
+
+		wnd.position = new Rect(100, 100, size.x, size.y);
 	}
 
 	public void OnGUI()
@@ -42,7 +55,8 @@ public class HgtToTrn : EditorWindow
 		{
 			GUILayout.Label("Saving Settings", EditorStyles.boldLabel);
 			trnPath = EditorGUILayout.TextField("Save Folder Path", trnPath);
-			trnResolution = EditorGUILayout.IntField("trn Resolution", trnResolution);
+			trnResolution = EditorGUILayout.IntField("Resolution", trnResolution);
+			positionOffset = EditorGUILayout.Vector2IntField("Offset", positionOffset);
 			EditorGUILayout.Space(12);
 		}
 
@@ -63,27 +77,27 @@ public class HgtToTrn : EditorWindow
 		GUILayout.BeginHorizontal();
 		if (MapGenerated)
 		{
-			if (GUILayout.Button("Clear Map", GUILayout.Height(32)))
+			if (GUILayout.Button("Clear Map", GUILayout.Height(64)))
 			{
 				heightMapTexture = null;
-				heighMap = null;
+				heightMap = null;
 				MapGenerated = false;
 			}
-			if (GUILayout.Button("Save", GUILayout.Height(32)))
-			{
-				Save();
-			}
-			if (GUILayout.Button("Save All", GUILayout.Height(32)))
-			{
 
+			GUILayout.BeginVertical();
+			savePos = EditorGUILayout.Vector2IntField("Save Position", savePos, GUILayout.Height(38));
+			if (GUILayout.Button("Save", GUILayout.Height(24)))
+			{
+				Save(trnResolution, savePos);
 			}
+			GUILayout.EndVertical();
 		}
 		else
 		{
 			if (GUILayout.Button("Convert", GUILayout.Height(32)))
 			{
-				heighMap = Convert();
-				heightMapTexture = GenerateGrayscaleTexture(heighMap);
+				heightMap = Convert();
+				heightMapTexture = GenerateGrayscaleTexture(heightMap);
 				MapGenerated = true;
 			}
 		}
@@ -93,7 +107,6 @@ public class HgtToTrn : EditorWindow
 
 	private float[,] Convert()
 	{
-		int spacing = hgtIsOneArcSec ? 10 : 30;
 		int resolution = hgtIsOneArcSec ? 3601 : 1201;
 		int dataSize = resolution * resolution;
 		int expectedBytes = dataSize * 2; // 2 bytes per Int16
@@ -119,15 +132,37 @@ public class HgtToTrn : EditorWindow
 		return elevationData;
 	}
 
-	private void Save()
+	private void Save(int resolution, Vector2Int position)
 	{
+		int spacing = hgtSpacing;
 
+		Vector2Int HgtPos = position * resolution / spacing;
 
-		for (int x = 0; x < trnResolution; x++)
+		float[,] chunkMap = new float[resolution, resolution];
+
+		for (int x = 0; x < resolution; x++)
 		{
-			for (int y = 0; y < trnResolution; y++)
+			for (int y = 0; y < resolution; y++)
 			{
+				//Todo: smoothing
 
+				int hgtX = x / spacing + HgtPos.x;
+				int hgtY = y / spacing + HgtPos.y;
+
+				chunkMap[x, y] = heightMap[hgtX, hgtY];
+			}
+		}
+
+		Vector2Int finalPosition = position + positionOffset;
+		string filePath = $"{trnPath}/{finalPosition}.trn";
+		using (BinaryWriter writer = new BinaryWriter(File.Open(filePath, FileMode.Create)))
+		{
+			for (int x = 0; x < resolution; x++)
+			{
+				for (int y = 0; y < resolution; y++)
+				{
+					writer.Write(chunkMap[x, y]);
+				}
 			}
 		}
 	}

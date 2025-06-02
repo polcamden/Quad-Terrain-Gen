@@ -2,5 +2,5 @@ using UnityEngine;
 
 public abstract class MapComponent : ScriptableObject
 {
-    public abstract float[,] loadData(Vector2Int position, Vector2Int size);
+    public abstract void loadOntoData(ref float[,] heightMap, Vector2Int mainPosition);
 }

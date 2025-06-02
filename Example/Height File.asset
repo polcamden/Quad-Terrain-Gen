@@ -12,6 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fa9fbaa6cbdcdad4d86cd6cf4426e27e, type: 3}
   m_Name: Height File
   m_EditorClassIdentifier: 
-  path: 
-  resolution: 30
+  path: Assets/TerrainGen git/Example/HeightData
   offset: 0
