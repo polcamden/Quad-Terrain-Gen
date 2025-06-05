@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace QuadTerrainGen
 {
-    [CreateAssetMenu(fileName = "TerrainMap", menuName = "HotAirBalloon/TerrainMap")]
+    [CreateAssetMenu(fileName = "TerrainMap", menuName = "QuadTerrainGen/TerrainMap")]
     public class TerrainMap : ScriptableObject
     {
         [SerializeField] private Material material;

@@ -44,7 +44,7 @@ namespace QuadTerrainGen
             get {
                 return new Vector3(
                     chunkPos.x * (worldSize / chunkSize) + worldSize / 2,
-                    0,
+					0,
                     chunkPos.y * (worldSize / chunkSize) + worldSize / 2);
             }
         }
@@ -91,7 +91,10 @@ namespace QuadTerrainGen
         /// </summary>
         public void LodUpdate(Vector3 center, float[] lodLevels)
         {
-            float dist = Vector3.Distance(WorldCenter, center);
+            Vector3 worldCenter = WorldCenter;
+            worldCenter += Vector3.up * mainChunk.GetHeight((int)worldCenter.x, (int)worldCenter.z);
+
+			float dist = Vector3.Distance(worldCenter, center);
 
             int newDepth = (int)Mathf.Pow(2, lodLevels.Length);
             for (int i = 1; i < lodLevels.Length; i++)
@@ -188,6 +191,11 @@ namespace QuadTerrainGen
                 {
                     AddMeshTransition(true);
                 }
+
+                terrainMesh.RecalculateNormals();
+                terrainMesh.RecalculateTangents();
+                terrainMesh.RecalculateBounds();
+                //terrainMesh.Optimize();
 
 				updateTransition = false;
 			}

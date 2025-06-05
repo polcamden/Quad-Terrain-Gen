@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 
 namespace QuadTerrainGen
 {
-	[CreateAssetMenu(fileName = "Height File", menuName = "HotAirBalloon/HeightFile", order = 100)]
+	[CreateAssetMenu(fileName = "Height File", menuName = "QuadTerrainGen/Height File", order = 100)]
 	public class MapHeightFile : MapComponent
 	{
 		[Tooltip("folder of .trn files")]
