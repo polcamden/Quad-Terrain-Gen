@@ -312,22 +312,35 @@ namespace QuadTerrainGen
 				int ourStart = (int)(neighborsRatio * meshResolution) * i;
 				int ourEnd = (int)(neighborsRatio * meshResolution) * (i + 1);
 
-                //create vertices for neighbor
-				for (int j = 0; j < neighbor.meshResolution; j++)
-				{
-					if (isRight)
-					{
-						float forwardOffset = i == 0 ? 0 : (worldSize / (i + 1));
-						vertices[vertIndex] = neighbor.terrainMesh.vertices[j] + Vector3.right * worldSize + Vector3.forward * forwardOffset;
-					}
-					else
-					{
-                        float rightOffset = i == 0 ? 0 : (worldSize / (i + 1));
-						vertices[vertIndex] = neighbor.terrainMesh.vertices[j * meshResolution] + Vector3.forward * worldSize + Vector3.right * rightOffset;
-					}
+                //int start = isRight ? chunkPos.y - neighbor.chunkPos.y : chunkPos.x - neighbor.chunkPos.x;
+                int start = 0;
+                int end = neighbor.meshResolution;
+                int offset = 0;
 
-					vertIndex++;
+                if (neighbor.CellSize > CellSize)
+                {
+					start = (isRight ? chunkPos.y - neighbor.chunkPos.y : chunkPos.x - neighbor.chunkPos.x) * 32 / chunkSize;
+                    Debug.Log(start);
+                    offset = start * (int)neighbor.CellSize;
 				}
+
+				//create vertices for neighbor
+				for (int j = start; j < end; j++)
+                {
+                    if (isRight)
+                    {
+                        float forwardOffset = (i == 0 ? 0 : (worldSize / (i + 1))) - offset;
+                        vertices[vertIndex] = neighbor.terrainMesh.vertices[j] + new Vector3(worldSize, 0, forwardOffset);
+                    }
+                    else
+                    {
+                        float rightOffset = (i == 0 ? 0 : (worldSize / (i + 1))) - offset;
+                        vertices[vertIndex] = neighbor.terrainMesh.vertices[j * meshResolution] + new Vector3(rightOffset, 0, worldSize);
+                    }
+
+
+                    vertIndex++;
+                }
 				
 				//triangle between us and neighbor vertices
 				if (neighbor.CellSize == CellSize) //equal res
@@ -769,7 +782,9 @@ namespace QuadTerrainGen
             }
             else
             {
-                GUIStyle style = new GUIStyle();
+                Handles.Label(WorldCorner, $"{chunkPos}");
+
+                /*GUIStyle style = new GUIStyle();
                 style.alignment = TextAnchor.UpperCenter;
                 style.fontSize = 10;
                 style.normal.textColor = Color.white;
@@ -804,7 +819,7 @@ namespace QuadTerrainGen
                         Handles.DrawLine(labelPos, neighbors[i][x].WorldCenter + Vector3.up * 100);
                         Handles.DrawSolidDisc(labelPos, Vector3.up, 64);
                     }
-                }
+                }*/
             }
 		}
     }
